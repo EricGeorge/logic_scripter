@@ -1,6 +1,9 @@
 // Triggers chords derived from played note
 
 // Chordtypes
+var unison = [0]
+var fifth = [7];
+
 var maj_Chord = [4, 7];
 var min_Chord = [3, 7];
 var dim_Chord = [3, 6];
@@ -18,11 +21,18 @@ var min7thb9_Chord = [3, 7, 10, 13]
 var dom9th_Chord = [4, 7, 10, 14]
 var min7th_Sharp5_b9 = [3, 8, 10, 13]
 
-
 var activeNotes = [];
 
 function HandleMIDI(event) {
     if (GetParameter("NoteCount") == 0) {
+        // unison
+        buildChord(event, unison);
+    }
+    if (GetParameter("NoteCount") == 1) {
+        // root + 5th
+        buildChord(event, fifth);
+    }
+    if (GetParameter("NoteCount") == 2) {
         if (GetParameter("Mode") == 0) {
             // MAJOR
             switch (event.pitch % 12) {
@@ -96,7 +106,7 @@ function HandleMIDI(event) {
             }
         }
     }
-    if (GetParameter("NoteCount") == 1) {
+    if (GetParameter("NoteCount") == 3) {
         if (GetParameter("Mode") == 0) {
             // MAJOR
             switch (event.pitch % 12) {
@@ -169,7 +179,7 @@ function HandleMIDI(event) {
             }
         }
     }
-    if (GetParameter("NoteCount") == 2) {
+    if (GetParameter("NoteCount") == 4) {
         if (GetParameter("Mode") == 0) {
             // MAJOR
             switch (event.pitch % 12) {
@@ -258,6 +268,24 @@ function buildChord(root, chordtype) {
             record.events.push(harmony);
             harmony.send();
         }
+        if (GetParameter("Color") == 1) {
+            var harmony = new NoteOn(root);
+            harmony.pitch += chordtype[chordtype.length - 1] + 7
+            record.events.push(harmony);
+            harmony.send();  
+        }
+        if (GetParameter("UpOctave") == 1) {
+            var harmony = new NoteOn(root);
+            harmony.pitch += 12
+            record.events.push(harmony);
+            harmony.send();  
+        }
+        if (GetParameter("DownOctave") == 1) {
+            var harmony = new NoteOn(root);
+            harmony.pitch -= 12
+            record.events.push(harmony);
+            harmony.send();  
+        }
         activeNotes.push(record);
     } else if (root instanceof NoteOff) {
         for (var i in activeNotes) {
@@ -297,9 +325,24 @@ var PluginParameters = [{
 }, {
     name: "NoteCount",
     type: "menu",
-    valueStrings: ["3", "4", "5"],
-    defaultValue: 0,
+    valueStrings: ["1", "2", "3", "4", "5"],
+    defaultValue: 2,
     minValue: 0,
-    maxValue: 1,
-    numberOfSteps: 2
+    maxValue: 4,
+    numberOfSteps: 5
+},
+{
+    name: "Color",
+    type: "checkbox",
+    defaultValue: 0,
+},
+{
+    name: "UpOctave",
+    type: "checkbox",
+    defaultValue: 0,
+},
+{
+    name: "DownOctave",
+    type: "checkbox",
+    defaultValue: 0,
 }];
