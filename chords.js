@@ -9,6 +9,7 @@
  *  - Add chord inversions
  *  - Add scale quantization
  */
+
 // Chordtypes
 const chord = {}
 
@@ -63,11 +64,9 @@ function HandleMIDI(event) {
     if (GetParameter("NoteCount") == 2) {
         if (GetParameter("Mode") == 0) {
             buildChord(event, major3Notes[chordIndex])
-            event.trace()
          }
         else if (GetParameter("Mode") == 1) {
             buildChord(event, minor3Notes[chordIndex])
-            event.trace()
         }
     }
     // 4 notes
