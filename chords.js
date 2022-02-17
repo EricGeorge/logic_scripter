@@ -223,7 +223,7 @@ function buildChord(root, chordtype) {
     }
 }
 
-// ResetParameterDefaults = true;
+ResetParameterDefaults = true;
 
 var PluginParameters = [{
     name: "Chords",
