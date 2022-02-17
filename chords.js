@@ -3,11 +3,10 @@
  */
 
 /** TODO:
- *  - Choose color note properly
  *  - Add open chord option
  *  - Rename parameters better
  *  - Add chord inversions
- *  - Add scale quantization
+ *  - Can I factor  scale chord arrays down to 7 notes?
  */
 
 // Chordtypes
@@ -37,7 +36,6 @@ chord.min7b9 = [3, 7, 10, 13]
 chord.dom9 = [4, 7, 10, 14]
 chord.min7_Sharp5_b9 = [3, 8, 10, 13]
 
-// factor this down to 7 notes once I have scale quantization
 var major3Notes = [chord.maj, 0, chord.min, 0, chord.min, chord.maj, 0, chord.maj, 0, chord.min, 0, chord.min_sharp5];
 var minor3Notes = [chord.min, 0, chord.min_sharp5, chord.maj, 0, chord.min, 0, chord.min, chord.maj, 0, chord.maj]
 var major4Notes = [chord.maj7, 0, chord.min7, 0, chord.min7, chord.maj7, 0, chord.dom7, 0, chord.min7, 0, chord.min7_Sharp5];
@@ -45,20 +43,94 @@ var minor4Notes = [chord.min7, 0, chord.min7_Sharp5, chord.maj7, 0, chord.min7, 
 var major5Notes = [chord.maj9, 0, chord.min9, 0, chord.min7b9, chord.maj9, 0, chord.dom9, 0, chord.min9, 0, chord.min7_Sharp5_b9];
 var minor5Notes = [chord.min9, 0, chord.min7_Sharp5_b9, chord.maj9, 0, chord.min9, 0, chord.min7b9, chord.maj9, 0, chord.dom9]
 
+// supported scales - add more here
+const scale = {}
+
+scale.maj = [1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1];
+scale.min = [1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0];
+
 var activeNotes = [];
+var scalekey = 0;
+
+function arrayRotate(arr, reverse) {
+    if (reverse) arr.unshift(arr.pop());
+    else arr.push(arr.shift());
+    return arr;
+  }
+
+function initMidiNotes() {
+
+    midinotes = [];
+    var currentScale = [];
+
+    // copy the scales into currentScale so I don't get any reference nonsense
+    if (GetParameter("Mode") == 0) {
+        currentScale = [...scale.maj];
+    } else {
+        currentScale = [...scale.min];
+    }
+
+    for (var x = 0; x < scalekey; x++) {
+        // rotate scale for current key
+        currentScale.unshift(currentScale.pop());
+    }
+
+    // build up the entire midi range to current mode/key
+    for (var x = 0; x < 144; x += 12) {
+        for (var y = 0; y < 12; y++) {
+            if (0 == currentScale[y]) {
+                midinotes.push(-1);
+            }
+            else {
+                midinotes.push(x + y);
+            }
+        }
+    }
+}
+
+// Correct upwards for midi notes out of scale
+function initMidiNotesUp() {
+
+    initMidiNotes();
+
+    x = 1;
+    while (x < midinotes.length) {
+        if (-1 == midinotes[x]) {
+            midinotes[x] = midinotes[x - 1];
+        }
+        x++;
+    }
+}
+
+function quantizeMidi(event) {
+    event.pitch = midinotes[event.pitch];
+}
+
+function ParameterChanged(param, value) {
+    switch (param) {
+        case 1:
+            scalekey = value;
+            initMidiNotesUp();
+            break;
+        case 2:
+            initMidiNotesUp();
+            break;
+    }
+}
 
 function HandleMIDI(event) {
+    quantizeMidi(event);
 
     chordIndex = (event.pitch - GetParameter("Root")) % 12
     // 1 note
     if (GetParameter("NoteCount") == 0) {
         // unison
-        buildChord(event, unison);
+        buildChord(event, chord.unison);
     }
     // 2 notes
     if (GetParameter("NoteCount") == 1) {
         // root + 5th
-        buildChord(event, fifth);
+        buildChord(event, chord.fifth);
     }
     // 3 notes
     if (GetParameter("NoteCount") == 2) {
@@ -103,12 +175,22 @@ function buildChord(root, chordtype) {
             var harmony = new NoteOn(root);
             harmony.pitch += chordtype[i];
             record.events.push(harmony);
-            harmony.send();
+            harmony.send();    
         }
         // play color note
         if (GetParameter("Color") == 1) {
             var harmony = new NoteOn(root);
-            harmony.pitch += chordtype[chordtype.length - 1] + 7
+            
+            // Treat the sharp5 chord a bit different to match Reason
+            var colorNoteOffset = 7;
+            if (chordtype == chord.min_sharp5 ||
+                chordtype == chord.min7_Sharp5 ||
+                chordtype == chord.min7_Sharp5_b9) {
+                colorNoteOffset = 6
+            }
+            
+            harmony.pitch += chordtype[chordtype.length - 1] + colorNoteOffset;
+
             record.events.push(harmony);
             harmony.send();  
         }
@@ -141,7 +223,7 @@ function buildChord(root, chordtype) {
     }
 }
 
-ResetParameterDefaults = true;
+// ResetParameterDefaults = true;
 
 var PluginParameters = [{
     name: "Chords",
