@@ -2,13 +2,6 @@
  * as the similar settings on the Reason Player
  */
 
-/** TODO:
- *  - Add open chord option
- *  - Rename parameters better
- *  - Add chord inversions
- *  - Can I factor  scale chord arrays down to 7 notes?
- */
-
 // Chordtypes
 const chord = {}
 
@@ -119,43 +112,47 @@ function ParameterChanged(param, value) {
 }
 
 function HandleMIDI(event) {
+
+    var numNotes = GetParameter("Number of Notes in Chord");
+    var mode = GetParameter("Mode");
+
     quantizeMidi(event);
 
-    chordIndex = (event.pitch - GetParameter("Root")) % 12
+    chordIndex = (event.pitch - GetParameter("Scale Key")) % 12
     // 1 note
-    if (GetParameter("NoteCount") == 0) {
+    if (numNotes == 0) {
         // unison
         buildChord(event, chord.unison);
     }
     // 2 notes
-    if (GetParameter("NoteCount") == 1) {
+    if (numNotes == 1) {
         // root + 5th
         buildChord(event, chord.fifth);
     }
     // 3 notes
-    if (GetParameter("NoteCount") == 2) {
-        if (GetParameter("Mode") == 0) {
+    if (numNotes == 2) {
+        if (mode == 0) {
             buildChord(event, major3Notes[chordIndex])
          }
-        else if (GetParameter("Mode") == 1) {
+        else if (mode == 1) {
             buildChord(event, minor3Notes[chordIndex])
         }
     }
     // 4 notes
-    if (GetParameter("NoteCount") == 3) {
-        if (GetParameter("Mode") == 0) {
+    if (numNotes == 3) {
+        if (mode == 0) {
             buildChord(event, major4Notes[chordIndex])
          }
-        else if (GetParameter("Mode") == 1) {
+        else if (mode == 1) {
             buildChord(event, minor4Notes[chordIndex])
         }
     }
     // 5 notes
-    if (GetParameter("NoteCount") == 4) {
-        if (GetParameter("Mode") == 0) {
+    if (numNotes == 4) {
+        if (mode == 0) {
             buildChord(event, major5Notes[chordIndex])
          }
-        else if (GetParameter("Mode") == 1) {
+        else if (mode == 1) {
             buildChord(event, minor5Notes[chordIndex])
         }
     }
@@ -174,35 +171,43 @@ function buildChord(root, chordtype) {
         for (var i = 0; i < chordtype.length; i++) {
             var harmony = new NoteOn(root);
             harmony.pitch += chordtype[i];
+
+            if (GetParameter("Open Chord") == 1) {
+                // for 3 note and 4 note chords, move the 3rd up an octave
+                if (i == 0) {
+                    harmony.pitch += 12;
+                }
+                if ((chordtype.length > 3) && (i > 1)) {
+                    harmony.pitch += 12;
+                }
+            }
             record.events.push(harmony);
             harmony.send();    
         }
-        // play color note
-        if (GetParameter("Color") == 1) {
+        // play Color note
+        if (GetParameter("Add Color") == 1) {
             var harmony = new NoteOn(root);
             
             // Treat the sharp5 chord a bit different to match Reason
             var colorNoteOffset = 7;
-            if (chordtype == chord.min_sharp5 ||
-                chordtype == chord.min7_Sharp5 ||
-                chordtype == chord.min7_Sharp5_b9) {
-                colorNoteOffset = 6
-            }
             
             harmony.pitch += chordtype[chordtype.length - 1] + colorNoteOffset;
+
+            // re-quantize to keep it in key
+            quantizeMidi(harmony);
 
             record.events.push(harmony);
             harmony.send();  
         }
         // play root note up an octave
-        if (GetParameter("UpOctave") == 1) {
+        if (GetParameter("Add Root Up 1 Octave") == 1) {
             var harmony = new NoteOn(root);
             harmony.pitch += 12
             record.events.push(harmony);
             harmony.send();  
         }
         // play root note down an octave
-        if (GetParameter("DownOctave") == 1) {
+        if (GetParameter("Add Root Down 1 Octave") == 1) {
             var harmony = new NoteOn(root);
             harmony.pitch -= 12
             record.events.push(harmony);
@@ -229,7 +234,7 @@ var PluginParameters = [{
     name: "Chords",
     type: "text"
 }, {
-    name: "Root",
+    name: "Scale Key",
     type: "menu",
     valueStrings: ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"],
     defaultValue: 0,
@@ -245,7 +250,7 @@ var PluginParameters = [{
     maxValue: 1,
     numberOfSteps: 2
 }, {
-    name: "NoteCount",
+    name: "Number of Notes in Chord",
     type: "menu",
     valueStrings: ["1", "2", "3", "4", "5"],
     defaultValue: 2,
@@ -254,17 +259,22 @@ var PluginParameters = [{
     numberOfSteps: 5
 },
 {
-    name: "Color",
+    name: "Add Color",
     type: "checkbox",
     defaultValue: 0,
 },
 {
-    name: "UpOctave",
+    name: "Add Root Up 1 Octave",
     type: "checkbox",
     defaultValue: 0,
 },
 {
-    name: "DownOctave",
+    name: "Add Root Down 1 Octave",
+    type: "checkbox",
+    defaultValue: 0,
+},
+{
+    name: "Open Chord",
     type: "checkbox",
     defaultValue: 0,
 }];
